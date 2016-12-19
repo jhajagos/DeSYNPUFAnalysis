@@ -9,7 +9,6 @@ import sqlalchemy as sa
 import re
 import csv
 
-
 def find_columns_that_match(table_columns, regex_field_match):
     columns_that_match = []
     for column in table_columns:
