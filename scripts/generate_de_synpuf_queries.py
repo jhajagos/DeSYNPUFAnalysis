@@ -144,7 +144,7 @@ def main():
 
 
     search_sql_field = id_field + ", " + date_field + ", \n"
-    search_sql_field += search_dict_larger_sql + ", "
+    search_sql_field += search_dict_larger_sql
     ccs_field_name_list = []
 
     for ccs_key in ccs_dict_with_codes:
@@ -173,7 +173,6 @@ def main():
     outer_sql_field += "MIN(%s) as min_%s, " % (alias_larger_category, alias_larger_category)
     outer_sql_field += "MAX(%s) as max_%s, " % (alias_larger_category, alias_larger_category)
     outer_sql_field += "COUNT(distinct %s) as n_distinct_%s,\n" % (alias_larger_category, alias_larger_category)
-
 
     for ccs_field in ccs_field_name_list:
         outer_sql_field += "MIN(%s) as min_%s, " % (ccs_field, ccs_field)
