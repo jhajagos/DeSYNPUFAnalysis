@@ -1,13 +1,14 @@
 __author__ = 'janos'
 
 """
-Generate queries against DE-SYNPUF database for understanding relationships
+Generate queries against DE-SYNPUF database or another claim's database were
+the coding is flat for understanding relationships between first time of diagnosis.
 """
-
 
 import sqlalchemy as sa
 import re
 import csv
+
 
 def find_columns_that_match(table_columns, regex_field_match):
     columns_that_match = []
@@ -54,6 +55,21 @@ def generate_ccs_dx_codes_to_search(ccs_codes, csv_file_name="./ccs/cleaned_dxre
 
     return ccs_dict_with_values
 
+
+def generate_ccs_dx_codes_to_search_across_range(ccs_codes,  csv_file_name="./ccs/cleaned_dxref_2015.csv"):
+    with open(csv_file_name, "rb") as f:
+        code_list = []
+        csv_dict_reader = csv.DictReader(f)
+        for csv_dict in csv_dict_reader:
+            ccs_code = csv_dict["CCS CATEGORY"]
+
+            ccs_code_description = csv_dict["CCS CATEGORY DESCRIPTION"]
+            code = csv_dict["ICD-9-CM CODE"]
+
+            if ccs_code in ccs_codes:
+                ccs_key = (ccs_code, ccs_code_description)
+                code_list += [code]
+        return code_list
 
 def generate_ccs_proc_codes_to_search():
     pass
@@ -108,6 +124,8 @@ def main():
 
     date_field = '`CLM_FROM_DT`'
 
+    alias_larger_category = "dx_cancer_range"
+
     meta_data = get_metadata(db_connection_uri)
     column_names = get_columns_from_table(table_name, meta_data)
 
@@ -115,9 +133,18 @@ def main():
 
     columns_to_search = find_columns_that_match(column_names, re.compile(fields_to_match))
 
-    ccs_dict_with_codes = generate_ccs_dx_codes_to_search([str(i) for i in range(11, 45)])
+    ccs_dict_with_codes = generate_ccs_dx_codes_to_search([str(i) for i in [14, 17, 19, 24]])
+
+    ccs_codes_for_larger_range = generate_ccs_dx_codes_to_search_across_range([str(i) for i in range(11,46)])
+
+    search_dict_larger_range = {"fields_to_search": columns_to_search, "search_values": ccs_codes_for_larger_range,
+                       "alias_field_name": alias_larger_category, "case_false_true_value": ["NULL", date_field]}
+
+    search_dict_larger_sql = case_statement_search_multiple_fields(search_dict_larger_range, field_escape_left="`", field_escape_right="`") + ", \n"
+
 
     search_sql_field = id_field + ", " + date_field + ", \n"
+    search_sql_field += search_dict_larger_sql + ", "
     ccs_field_name_list = []
 
     for ccs_key in ccs_dict_with_codes:
@@ -142,6 +169,11 @@ def main():
     outer_sql_field += "MIN(%s) as min_%s, " % (date_field, "claim_date")
     outer_sql_field += "MAX(%s) as max_%s, " % (date_field, "claim_date")
     outer_sql_field += "COUNT(distinct %s) as %s,\n" % (date_field, "claim_date_n_distinct")
+
+    outer_sql_field += "MIN(%s) as min_%s, " % (alias_larger_category, alias_larger_category)
+    outer_sql_field += "MAX(%s) as max_%s, " % (alias_larger_category, alias_larger_category)
+    outer_sql_field += "COUNT(distinct %s) as n_distinct_%s,\n" % (alias_larger_category, alias_larger_category)
+
 
     for ccs_field in ccs_field_name_list:
         outer_sql_field += "MIN(%s) as min_%s, " % (ccs_field, ccs_field)
